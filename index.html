@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Font Studio</title>
+<style>
+  :root {
+    --ink: #1a1815;
+    --ink-2: #232019;
+    --ink-3: #2c2820;
+    --parchment: #e8dfd0;
+    --parchment-dim: #a89f8e;
+    --copper: #b8763f;
+    --copper-soft: rgba(184,118,63,0.18);
+    --copper-bright: #d98f52;
+    --sage: #7a8570;
+    --sage-soft: rgba(122,133,112,0.2);
+    --line: #3a352c;
+    --line-light: #4a4439;
+    --danger: #b85f4a;
+    --ghost: rgba(232,223,208,0.32);
+    --guide-entry: #5b8fb9;
+    --guide-exit: #b8763f;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--ink);
+    color: var(--parchment);
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    overflow-x: hidden;
+  }
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100%;
+  }
+  header {
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .header-left h1 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    font-size: 0.65rem;
+    background: var(--copper-soft);
+    color: var(--copper-bright);
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid rgba(184,118,63,0.4);
+    font-weight: 500;
+  }
+  .header-left .sub {
+    color: var(--parchment-dim);
+    font-size: 0.72rem;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .save-status {
+    font-size: 0.7rem;
+    color: var(--sage);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: opacity 0.3s;
+  }
+  .save-status.fading { opacity: 0.5; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* Sidebar: character list */
+  .sidebar {
+    width: 100px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .char-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+  .char-btn {
+    width: 100%;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    color: var(--parchment-dim);
+    border-radius: 8px;
+    padding: 7px 0;
+    font-family: monospace;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transition: all 0.15s ease;
+  }
+  .char-btn:hover {
+    border-color: var(--parchment-dim);
+    color: var(--parchment);
+  }
+  .char-btn.active {
+    background: var(--copper-soft);
+    border-color: var(--copper);
+    color: var(--copper-bright);
+    box-shadow: 0 0 8px rgba(184,118,63,0.25);
+  }
+  .char-btn .dot-status { display: flex; gap: 3px; }
+  .char-btn .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--line); }
+  .char-btn .dot.filled { background: var(--sage); }
+  .char-btn.active .dot.filled { background: var(--copper); }
+
+  .add-char-btn {
+    width: 100%;
+    background: var(--ink-3);
+    border: 1px dashed var(--line-light);
+    color: var(--parchment-dim);
+    border-radius: 8px;
+    padding: 8px 0;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: all 0.2s;
+  }
+  .add-char-btn:hover {
+    border-color: var(--copper);
+    color: var(--copper-bright);
+    background: var(--copper-soft);
+  }
+
+  /* Center: canvas editor */
+  .editor-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+  }
+  .editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+    background: var(--ink);
+  }
+  .form-toggle { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .form-toggle button {
+    background: var(--ink-2); color: var(--parchment-dim); border: none;
+    padding: 6px 12px; font-size: 0.75rem; cursor: pointer; font-family: inherit;
+    transition: background 0.15s;
+  }
+  .form-toggle button.active { background: var(--copper-soft); color: var(--copper-bright); font-weight: 600; }
+  .tool-btn {
+    background: var(--ink-2); border: 1px solid var(--line); color: var(--parchment-dim);
+    border-radius: 6px; padding: 6px 11px; font-size: 0.75rem; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; gap: 4px; transition: all 0.15s;
+  }
+  .tool-btn.active { background: var(--copper-soft); color: var(--copper-bright); border-color: var(--copper); font-weight: 500; }
+  .tool-btn:hover { border-color: var(--parchment-dim); }
+  .tool-btn.ghost-toggle.active { background: var(--sage-soft); color: #9bb58f; border-color: var(--sage); }
+  .tool-btn.snap-toggle.active { background: rgba(91,143,185,0.2); color: #8bbce0; border-color: #5b8fb9; }
+
+  .spacer { flex: 1; }
+  .canvas-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ink-2);
+    overflow: auto;
+    padding: 16px;
+    min-height: 0;
+    position: relative;
+  }
+  #glyph-canvas {
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: crosshair;
+    touch-action: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .canvas-footer {
+    padding: 7px 16px;
+    font-size: 0.72rem;
+    color: var(--parchment-dim);
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    background: var(--ink);
+  }
+  .canvas-footer .indicators {
+    display: flex;
+    gap: 14px;
+  }
+  .canvas-footer .ind-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .canvas-footer .ind-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .canvas-footer button {
+    background: none; border: none; color: var(--sage); cursor: pointer;
+    font-size: 0.72rem; font-family: inherit; padding: 0;
+  }
+  .canvas-footer button:hover { text-decoration: underline; }
+
+  /* Right: metrics panel */
+  .metrics-panel {
+    width: 210px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--line);
+    padding: 14px;
+    overflow-y: auto;
+    background: var(--ink);
+  }
+  .metrics-panel h2 { font-size: 0.78rem; font-weight: 600; margin: 0 0 12px; color: var(--parchment); }
+  .field { margin-bottom: 11px; }
+  .field label { display: block; font-size: 0.65rem; color: var(--parchment-dim); margin-bottom: 4px; font-family: monospace; }
+  .field input[type="number"], .field input[type="text"] {
+    width: 100%; background: var(--ink-2); border: 1px solid var(--line); color: var(--parchment);
+    padding: 6px 8px; border-radius: 5px; font-size: 0.8rem; font-family: monospace;
+    outline: none;
+  }
+  .field input:focus { border-color: var(--copper); }
+  .field-hint { font-size: 0.6rem; color: var(--parchment-dim); margin-top: 3px; }
+
+  .action-btn {
+    width: 100%; border: none; border-radius: 6px;
+    padding: 8px 0; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+    margin-top: 6px; font-family: inherit; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .export-btn { background: var(--sage); color: var(--ink); }
+  .export-btn:hover { background: #8b9980; }
+  .import-btn { background: var(--ink-3); border: 1px solid var(--line); color: var(--parchment); }
+  .import-btn:hover { border-color: var(--copper); color: var(--copper-bright); }
+  .sample-btn { background: var(--copper-soft); border: 1px solid rgba(184,118,63,0.3); color: var(--copper-bright); }
+  .sample-btn:hover { background: rgba(184,118,63,0.3); }
+  .reset-btn { background: transparent; border: 1px solid var(--line); color: var(--parchment-dim); font-size: 0.7rem; font-weight: normal; margin-top: 10px; }
+  .reset-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  .divider { border-top: 1px solid var(--line); margin: 12px 0; }
+  .hint-box {
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 9px 10px;
+    font-size: 0.65rem;
+    color: var(--parchment-dim);
+    line-height: 1.5;
+  }
+  .hint-box strong { color: var(--parchment); }
+
+  /* Bottom: live preview bar */
+  .preview-bar {
+    flex-shrink: 0;
+    border-top: 1px solid var(--line);
+    background: var(--ink-2);
+    padding: 10px 16px 14px;
+  }
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .preview-header .label {
+    font-size: 0.75rem;
+    color: var(--parchment);
+    font-weight: 600;
+  }
+  .preview-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .preview-input-row input[type="text"] {
+    flex: 1;
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    color: var(--parchment);
+    font-size: 0.95rem;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-family: monospace;
+    outline: none;
+  }
+  .preview-input-row input[type="text"]:focus { border-color: var(--copper); }
+  .preview-toggle { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .preview-toggle button {
+    background: var(--ink-3); color: var(--parchment-dim); border: none;
+    padding: 0 12px; font-size: 0.72rem; cursor: pointer; font-family: inherit;
+  }
+  .preview-toggle button.active { background: var(--copper-soft); color: var(--copper-bright); font-weight: 600; }
+  .preview-canvas-wrap {
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-height: 82px;
+    overflow-x: auto;
+    display: flex;
+    align-items: center;
+  }
+  #preview-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0; /* gap: 0 で完全なシームレス連結を実現 */
+    min-height: 60px;
+  }
+  #preview-row.rtl { flex-direction: row-reverse; justify-content: flex-end; }
+  #preview-row.ltr { flex-direction: row; justify-content: flex-start; }
+  .pv-slot {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .pv-slot:hover {
+    background: rgba(255,255,255,0.04);
+  }
+  .pv-slot svg { display: block; overflow: visible; }
+  .pv-caption {
+    font-size: 0.55rem;
+    color: var(--parchment-dim);
+    margin-top: 4px;
+    font-family: monospace;
+    white-space: nowrap;
+    opacity: 0.7;
+  }
+  .pv-slot:hover .pv-caption { opacity: 1; color: var(--copper-bright); }
+  .preview-status { font-size: 0.68rem; color: var(--sage); margin-top: 6px; min-height: 14px; }
+  .pv-placeholder { font-size: 0.68rem; color: var(--parchment-dim); }
+
+  /* Drag and drop overlay */
+  .drop-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(26,24,21,0.88);
+    backdrop-filter: blur(4px);
+    border: 3px dashed var(--copper);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+  }
+  .drop-overlay.active { display: flex; }
+  .drop-overlay h3 { font-size: 1.3rem; color: var(--copper-bright); margin: 0; }
+  .drop-overlay p { font-size: 0.85rem; color: var(--parchment); margin: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="header-left">
+      <h1>Font Studio <span class="badge">Connected Script Edition</span></h1>
+      <div class="sub">前の文字とピタッと繋がるフォント制作。送り幅ラインと半透明ゴーストで接続点を確認しながら描けます。</div>
+    </div>
+    <div class="header-actions">
+      <div class="save-status" id="save-status">✓ 自動保存済み</div>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="char-list" id="char-sidebar"></div>
+      <button class="add-char-btn" id="btn-add-char" title="新しい文字を追加">+ 文字追加</button>
+    </div>
+
+    <div class="editor-col">
+      <div class="editor-toolbar">
+        <div class="form-toggle">
+          <button id="form-normal" class="active">normal</button>
+          <button id="form-final">final</button>
+        </div>
+        <button class="tool-btn active" id="tool-freehand">フリーハンド</button>
+        <button class="tool-btn" id="tool-pen">ペン(点)</button>
+        <button class="tool-btn" id="tool-move">移動</button>
+        <button class="tool-btn" id="tool-delete">点を削除</button>
+        <div class="spacer"></div>
+        <button class="tool-btn ghost-toggle active" id="btn-toggle-ghost" title="前後の文字を半透明で重ねて表示し、接続位置を確認します">👻 ゴースト</button>
+        <button class="tool-btn snap-toggle active" id="btn-toggle-snap" title="接続境界（0/Advance）やbaselineに吸着します">🧲 スナップ</button>
+        <button class="tool-btn" id="btn-copy-from-normal" title="normalの形をコピーしてfinalとして編集する">normalコピー →</button>
+        <button class="tool-btn" id="btn-undo">↺</button>
+        <button class="tool-btn" id="btn-redo">↻</button>
+        <button class="tool-btn" id="btn-clear">クリア</button>
+      </div>
+
+      <div class="canvas-wrap" id="canvas-container">
+        <svg id="glyph-canvas" width="480" height="440" viewBox="0 0 480 440"></svg>
+      </div>
+
+      <div class="canvas-footer">
+        <div class="indicators">
+          <span id="path-info">点: 0</span>
+          <div class="ind-item"><span class="ind-dot" style="background:var(--guide-entry)"></span><span style="font-size:0.68rem;color:var(--parchment-dim)">Entry: x=0</span></div>
+          <div class="ind-item"><span class="ind-dot" style="background:var(--guide-exit)"></span><span style="font-size:0.68rem;color:var(--parchment-dim)" id="ind-exit-text">Exit: x=280</span></div>
+        </div>
+        <button id="btn-close-path">パスを閉じる/開く</button>
+      </div>
+    </div>
+
+    <div class="metrics-panel">
+      <h2>字形 & 接続メトリクス</h2>
+      <div class="field">
+        <label>letter id</label>
+        <input type="text" id="meta-id" readonly>
+      </div>
+      <div class="field">
+        <label>codepoint</label>
+        <input type="text" id="meta-codepoint" readonly>
+      </div>
+      <div class="field">
+        <label>advance width (文字幅/接続位置)</label>
+        <input type="number" id="meta-advance" value="280" min="60" max="460" step="10">
+        <div class="field-hint">キャンバス上の橙色の線をドラッグしても変更できます</div>
+      </div>
+      <div class="field">
+        <label>left bearing</label>
+        <input type="number" id="meta-left" value="0">
+      </div>
+      <div class="field">
+        <label>right bearing</label>
+        <input type="number" id="meta-right" value="0">
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="action-btn export-btn" id="btn-export">💾 characters.json 書き出し</button>
+      <label class="action-btn import-btn" for="file-import">📂 characters.json 読み込み</label>
+      <input type="file" id="file-import" accept=".json" style="display:none;">
+      <button class="action-btn sample-btn" id="btn-load-sample">⚡ サンプル読込 (sample.json)</button>
+      <button class="action-btn reset-btn" id="btn-reset-data">新規データにリセット</button>
+
+      <div class="divider"></div>
+      <div class="hint-box">
+        <strong>💡 くっつくフォントのコツ</strong><br>
+        1. 始点を左端 <code>x=0</code>、終点を右の線 <code>x=Advance</code> に合わせます。<br>
+        2. <strong>ゴースト表示</strong>をONにすると前後の文字が見えるので、同じ高さで繋げられます！<br>
+        3. 画面全体に JSON を<strong>ドラッグ＆ドロップ</strong>しても即読み込めます。
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-bar">
+    <div class="preview-header">
+      <span class="label">リアルタイム連結プレビュー</span>
+      <div class="preview-toggle">
+        <button id="pv-btn-ltr" class="active">LTR (左→右)</button>
+        <button id="pv-btn-rtl">RTL (右→左)</button>
+      </div>
+      <div class="spacer"></div>
+      <span class="pv-placeholder" id="pv-count">0 glyphs</span>
+    </div>
+    <div class="preview-input-row">
+      <input type="text" id="pv-input" placeholder="文字を入力（例: a r e f ... クリックで直接編集）" value="a a a">
+    </div>
+    <div class="preview-canvas-wrap">
+      <div id="preview-row" class="ltr"></div>
+    </div>
+    <div class="preview-status" id="pv-status"></div>
+  </div>
+</div>
+
+<div class="drop-overlay" id="drop-overlay">
+  <h3>📂 characters.json をドロップ</h3>
+  <p>ファイルを離すと読み込んで作業を再開します</p>
+</div>
+
+<script>
+// ==========================================
+// 定数 & 初期データ
+// ==========================================
+let LETTERS = ['a','e','f','h','i','j','k','m','n','o','p','r','s','t','u'];
+const CANVAS_W = 480, CANVAS_H = 440;
+const BASELINE_Y = 340;
+const XHEIGHT_Y = 160;
+const CAPHEIGHT_Y = 90;
+const DEFAULT_ADVANCE = 280;
+const STORAGE_KEY = 'font_studio_conlang_data_v2';
+
+// data[letter] = { codepoint, advanceWidth, leftBearing, rightBearing, normal:{points,closed}, final:{points,closed} }
+let data = {};
+
+function createEmptyGlyph(codepointHex, advanceWidth = DEFAULT_ADVANCE) {
+  return {
+    codepoint: codepointHex,
+    advanceWidth: advanceWidth,
+    leftBearing: 0,
+    rightBearing: 0,
+    normal: { points: [], closed: false },
+    final: { points: [], closed: false }
+  };
+}
+
+function initDefaultData() {
+  data = {};
+  LETTERS.forEach((l, idx) => {
+    data[l] = createEmptyGlyph('E' + idx.toString(16).padStart(3, '0').toUpperCase(), DEFAULT_ADVANCE);
+  });
+}
+
+initDefaultData();
+
+let currentLetter = 'a';
+let currentForm = 'normal';
+let currentTool = 'freehand';
+let ghostEnabled = true;
+let snapEnabled = true;
+let history = [];
+let historyIdx = -1;
+let draggingHandle = null;
+let draggingPoint = null;
+let isDraggingAdvance = false;
+let isFreehandDrawing = false;
+let freehandRaw = [];
+
+const svg = document.getElementById('glyph-canvas');
+
+// ==========================================
+// 履歴 & 自動保存
+// ==========================================
+function snapshot() {
+  return JSON.parse(JSON.stringify(data[currentLetter]));
+}
+
+function pushHistory() {
+  history = history.slice(0, historyIdx + 1);
+  history.push(snapshot());
+  historyIdx = history.length - 1;
+  if (history.length > 50) { history.shift(); historyIdx--; }
+  saveToStorage();
+  renderPreview();
+}
+
+function undo() {
+  if (historyIdx <= 0) return;
+  historyIdx--;
+  data[currentLetter] = JSON.parse(JSON.stringify(history[historyIdx]));
+  updateMetaInputs();
+  render();
+  saveToStorage();
+}
+
+function redo() {
+  if (historyIdx >= history.length - 1) return;
+  historyIdx++;
+  data[currentLetter] = JSON.parse(JSON.stringify(history[historyIdx]));
+  updateMetaInputs();
+  render();
+  saveToStorage();
+}
+
+function resetHistoryForCurrent() {
+  history = [snapshot()];
+  historyIdx = 0;
+}
+
+function saveToStorage() {
+  try {
+    const payload = {
+      letters: LETTERS,
+      data: data,
+      currentLetter: currentLetter,
+      currentForm: currentForm,
+      previewText: document.getElementById('pv-input').value,
+      previewDir: previewDirection
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    showSaveStatus('✓ 自動保存済み');
+  } catch (e) {
+    console.warn('localStorage save failed', e);
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    if (payload && payload.data) {
+      if (Array.isArray(payload.letters) && payload.letters.length > 0) {
+        LETTERS = payload.letters;
+      }
+      data = payload.data;
+      // データの正規化
+      LETTERS.forEach(l => {
+        if (!data[l]) data[l] = createEmptyGlyph('E000');
+        if (data[l].advanceWidth === undefined) data[l].advanceWidth = DEFAULT_ADVANCE;
+        if (!data[l].normal) data[l].normal = { points: [], closed: false };
+        if (!data[l].final) data[l].final = { points: [], closed: false };
+      });
+      if (payload.currentLetter && data[payload.currentLetter]) currentLetter = payload.currentLetter;
+      if (payload.currentForm) currentForm = payload.currentForm;
+      if (payload.previewText) document.getElementById('pv-input').value = payload.previewText;
+      if (payload.previewDir) setPreviewDirection(payload.previewDir);
+      return true;
+    }
+  } catch (e) {
+    console.error('loadFromStorage error', e);
+  }
+  return false;
+}
+
+let saveTimer = null;
+function showSaveStatus(msg) {
+  const el = document.getElementById('save-status');
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    el.style.opacity = '0.6';
+  }, 2000);
+}
+
+// ==========================================
+// サイドバー & メトリクス
+// ==========================================
+function buildSidebar() {
+  const el = document.getElementById('char-sidebar');
+  el.innerHTML = '';
+  LETTERS.forEach(l => {
+    const btn = document.createElement('button');
+    btn.className = 'char-btn' + (l === currentLetter ? ' active' : '');
+    const entry = data[l] || { normal: { points: [] }, final: { points: [] } };
+    const nHas = entry.normal && entry.normal.points && entry.normal.points.length > 0;
+    const fHas = entry.final && entry.final.points && entry.final.points.length > 0;
+    btn.innerHTML = `<span>${l}</span><span class="dot-status">
+      <span class="dot ${nHas ? 'filled' : ''}" title="normal"></span>
+      <span class="dot ${fHas ? 'filled' : ''}" title="final"></span>
+    </span>`;
+    btn.addEventListener('click', () => {
+      selectLetter(l);
+    });
+    el.appendChild(btn);
+  });
+}
+
+function selectLetter(l) {
+  if (!data[l]) return;
+  currentLetter = l;
+  resetHistoryForCurrent();
+  buildSidebar();
+  updateMetaInputs();
+  render();
+  saveToStorage();
+}
+
+function updateMetaInputs() {
+  const entry = data[currentLetter];
+  if (!entry) return;
+  document.getElementById('meta-id').value = currentLetter;
+  document.getElementById('meta-codepoint').value = 'U+' + entry.codepoint;
+  document.getElementById('meta-advance').value = entry.advanceWidth || DEFAULT_ADVANCE;
+  document.getElementById('meta-left').value = entry.leftBearing !== undefined ? entry.leftBearing : 0;
+  document.getElementById('meta-right').value = entry.rightBearing !== undefined ? entry.rightBearing : 0;
+  document.getElementById('ind-exit-text').textContent = `Exit: x=${entry.advanceWidth || DEFAULT_ADVANCE}`;
+}
+
+// メトリクス入力イベント
+document.getElementById('meta-advance').addEventListener('input', (e) => {
+  const val = parseInt(e.target.value) || DEFAULT_ADVANCE;
+  data[currentLetter].advanceWidth = Math.max(60, Math.min(CANVAS_W - 20, val));
+  document.getElementById('ind-exit-text').textContent = `Exit: x=${data[currentLetter].advanceWidth}`;
+  render();
+  renderPreview();
+  saveToStorage();
+});
+document.getElementById('meta-left').addEventListener('input', (e) => {
+  data[currentLetter].leftBearing = parseInt(e.target.value) || 0;
+  saveToStorage();
+});
+document.getElementById('meta-right').addEventListener('input', (e) => {
+  data[currentLetter].rightBearing = parseInt(e.target.value) || 0;
+  saveToStorage();
+});
+
+// 文字追加ボタン
+document.getElementById('btn-add-char').addEventListener('click', () => {
+  const input = prompt('追加したい文字（1文字、例: b, c, d, g, w...）を入力してください:');
+  if (!input) return;
+  const char = input.trim().toLowerCase()[0];
+  if (!char) return;
+  if (!LETTERS.includes(char)) {
+    LETTERS.push(char);
+    const nextCodepoint = 'E' + (0x100 + LETTERS.length).toString(16).toUpperCase();
+    data[char] = createEmptyGlyph(nextCodepoint, DEFAULT_ADVANCE);
+  }
+  selectLetter(char);
+});
+
+// ==========================================
+// ガイド & ゴースト描画
+// ==========================================
+function getPreviousLetter() {
+  const idx = LETTERS.indexOf(currentLetter);
+  if (idx > 0) return LETTERS[idx - 1];
+  return LETTERS[LETTERS.length - 1];
+}
+
+function drawGuides() {
+  let s = '';
+  const advance = data[currentLetter].advanceWidth || DEFAULT_ADVANCE;
+
+  // 1) 背景グリッド
+  for (let x = 0; x <= CANVAS_W; x += 20) {
+    s += `<line x1="${x}" y1="0" x2="${x}" y2="${CANVAS_H}" stroke="#25211b" stroke-width="1"/>`;
+  }
+  for (let y = 0; y <= CANVAS_H; y += 20) {
+    s += `<line x1="0" y1="${y}" x2="${CANVAS_W}" y2="${y}" stroke="#25211b" stroke-width="1"/>`;
+  }
+
+  // 2) メトリクス基準線（Cap-height, X-height, Baseline）
+  s += `<line x1="0" y1="${CAPHEIGHT_Y}" x2="${CANVAS_W}" y2="${CAPHEIGHT_Y}" stroke="#5a6a52" stroke-width="1" stroke-dasharray="2 4"/>`;
+  s += `<text x="8" y="${CAPHEIGHT_Y - 4}" fill="#5a6a52" font-size="9" font-family="monospace">cap-height</text>`;
+
+  s += `<line x1="0" y1="${XHEIGHT_Y}" x2="${CANVAS_W}" y2="${XHEIGHT_Y}" stroke="#7a8570" stroke-width="1.2" stroke-dasharray="4 3"/>`;
+  s += `<text x="8" y="${XHEIGHT_Y - 4}" fill="#7a8570" font-size="9" font-family="monospace">x-height</text>`;
+
+  s += `<line x1="0" y1="${BASELINE_Y}" x2="${CANVAS_W}" y2="${BASELINE_Y}" stroke="#b8763f" stroke-width="1.4" stroke-dasharray="4 3"/>`;
+  s += `<text x="8" y="${BASELINE_Y - 4}" fill="#b8763f" font-size="9" font-family="monospace">baseline (y=${BASELINE_Y})</text>`;
+
+  // 3) ゴースト表示（オニオンスキン）
+  if (ghostEnabled) {
+    const prevChar = getPreviousLetter();
+    const prevEntry = data[prevChar];
+    if (prevEntry && prevEntry.normal && prevEntry.normal.points.length > 0) {
+      const prevAdv = prevEntry.advanceWidth || DEFAULT_ADVANCE;
+      // 前の文字の終端が x=0 に来るようにシフトして表示
+      const shiftX = -prevAdv;
+      const ghostD = pathDataWithShift(prevEntry.normal.points, prevEntry.normal.closed, shiftX, 0);
+      s += `<g opacity="0.35">
+        <path d="${ghostD}" fill="none" stroke="#e8dfd0" stroke-width="2.5" stroke-dasharray="4 3" stroke-linecap="round"/>
+        <text x="4" y="24" fill="#a89f8e" font-size="10" font-family="monospace">← [${prevChar}] の接続部</text>
+      </g>`;
+    }
+
+    // 次の文字（現在の文字の繰り返し、または自身）を x=advance にシフトして表示
+    const curGlyph = data[currentLetter].normal;
+    if (curGlyph && curGlyph.points.length > 0) {
+      const ghostNextD = pathDataWithShift(curGlyph.points, curGlyph.closed, advance, 0);
+      s += `<g opacity="0.30">
+        <path d="${ghostNextD}" fill="none" stroke="#e8dfd0" stroke-width="2.5" stroke-dasharray="4 3" stroke-linecap="round"/>
+        <text x="${advance + 8}" y="24" fill="#a89f8e" font-size="10" font-family="monospace">[${currentLetter}] 次の文字 →</text>
+      </g>`;
+    }
+  }
+
+  // 4) 接続線：Entry境界 (x=0)
+  s += `<line x1="0" y1="0" x2="0" y2="${CANVAS_H}" stroke="var(--guide-entry)" stroke-width="2.5"/>`;
+  s += `<rect x="2" y="2" width="56" height="16" rx="3" fill="#203345"/>`;
+  s += `<text x="6" y="14" fill="#8bbce0" font-size="9" font-weight="bold" font-family="monospace">Entry (0)</text>`;
+
+  // 5) 接続線：Exit / Advance境界 (x=advance) & ドラッグハンドル
+  s += `<line x1="${advance}" y1="0" x2="${advance}" y2="${CANVAS_H}" stroke="var(--guide-exit)" stroke-width="2" stroke-dasharray="6 4"/>`;
+  // ドラッグつまみ（ハンドル）
+  s += `<g class="advance-handle" data-handle-advance="true" style="cursor:ew-resize">
+    <rect x="${advance - 45}" y="2" width="90" height="20" rx="10" fill="#3a2717" stroke="#b8763f" stroke-width="1.2"/>
+    <text x="${advance}" y="15" fill="#e8dfd0" font-size="9.5" font-weight="bold" font-family="monospace" text-anchor="middle">⬌ ${advance}px</text>
+  </g>`;
+
+  return s;
+}
+
+function pathData(points, closed) {
+  return pathDataWithShift(points, closed, 0, 0);
+}
+
+function pathDataWithShift(points, closed, dx, dy) {
+  if (!points || points.length === 0) return '';
+  let d = `M ${points[0].x + dx} ${points[0].y + dy} `;
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i-1], cur = points[i];
+    const c1x = (prev.outX !== undefined ? prev.outX : prev.x) + dx;
+    const c1y = (prev.outY !== undefined ? prev.outY : prev.y) + dy;
+    const c2x = (cur.inX !== undefined ? cur.inX : cur.x) + dx;
+    const c2y = (cur.inY !== undefined ? cur.inY : cur.y) + dy;
+    d += `C ${c1x} ${c1y}, ${c2x} ${c2y}, ${cur.x + dx} ${cur.y + dy} `;
+  }
+  if (closed && points.length > 1) {
+    const prev = points[points.length - 1], first = points[0];
+    const c1x = (prev.outX !== undefined ? prev.outX : prev.x) + dx;
+    const c1y = (prev.outY !== undefined ? prev.outY : prev.y) + dy;
+    const c2x = (first.inX !== undefined ? first.inX : first.x) + dx;
+    const c2y = (first.inY !== undefined ? first.inY : first.y) + dy;
+    d += `C ${c1x} ${c1y}, ${c2x} ${c2y}, ${first.x + dx} ${first.y + dy} Z`;
+  }
+  return d;
+}
+
+// ==========================================
+// スナップ補助
+// ==========================================
+function applySnap(x, y) {
+  if (!snapEnabled) return { x, y };
+  const advance = data[currentLetter].advanceWidth || DEFAULT_ADVANCE;
+  const SNAP_DIST = 10;
+  let sx = x, sy = y;
+
+  // X方向スナップ
+  if (Math.abs(x - 0) < SNAP_DIST) sx = 0;
+  else if (Math.abs(x - advance) < SNAP_DIST) sx = advance;
+
+  // Y方向スナップ
+  if (Math.abs(y - BASELINE_Y) < SNAP_DIST) sy = BASELINE_Y;
+  else if (Math.abs(y - XHEIGHT_Y) < SNAP_DIST) sy = XHEIGHT_Y;
+  else if (Math.abs(y - CAPHEIGHT_Y) < SNAP_DIST) sy = CAPHEIGHT_Y;
+
+  // 前の文字のゴースト終端点へのスナップ（x=0付近のとき）
+  const prevChar = getPreviousLetter();
+  const prevEntry = data[prevChar];
+  if (prevEntry && prevEntry.normal && prevEntry.normal.points.length > 0) {
+    const lastPt = prevEntry.normal.points[prevEntry.normal.points.length - 1];
+    if (Math.abs(x - 0) < SNAP_DIST * 1.5 && Math.abs(y - lastPt.y) < SNAP_DIST * 1.5) {
+      sx = 0;
+      sy = lastPt.y;
+    }
+  }
+
+  return { x: sx, y: sy };
+}
+
+// ==========================================
+// キャンバス描画 (Render)
+// ==========================================
+function render() {
+  const glyph = data[currentLetter][currentForm];
+  let s = drawGuides();
+  const d = pathData(glyph.points, glyph.closed);
+  if (d) s += `<path d="${d}" fill="none" stroke="#e8dfd0" stroke-width="2.6" stroke-linecap="round"/>`;
+
+  glyph.points.forEach((p, i) => {
+    if (p.inX !== undefined) {
+      s += `<line x1="${p.x}" y1="${p.y}" x2="${p.inX}" y2="${p.inY}" stroke="#7a8570" stroke-width="1"/>`;
+      s += `<circle cx="${p.inX}" cy="${p.inY}" r="3.5" fill="#7a8570" data-handle="in" data-idx="${i}" style="cursor:pointer"/>`;
+    }
+    if (p.outX !== undefined) {
+      s += `<line x1="${p.x}" y1="${p.y}" x2="${p.outX}" y2="${p.outY}" stroke="#7a8570" stroke-width="1"/>`;
+      s += `<circle cx="${p.outX}" cy="${p.outY}" r="3.5" fill="#7a8570" data-handle="out" data-idx="${i}" style="cursor:pointer"/>`;
+    }
+    const isConnEntry = Math.abs(p.x - 0) <= 2;
+    const isConnExit = Math.abs(p.x - (data[currentLetter].advanceWidth || DEFAULT_ADVANCE)) <= 2;
+    let ptColor = '#b8763f';
+    if (currentTool === 'delete') ptColor = '#b85f4a';
+    else if (isConnEntry) ptColor = '#5b8fb9';
+    else if (isConnExit) ptColor = '#d98f52';
+
+    s += `<circle cx="${p.x}" cy="${p.y}" r="${(isConnEntry||isConnExit)?6:5}" fill="${ptColor}" stroke="#e8dfd0" stroke-width="1.5" data-point="${i}" style="cursor:pointer"/>`;
+  });
+
+  svg.innerHTML = s;
+  document.getElementById('path-info').textContent = `点: ${glyph.points.length}${glyph.closed ? ' (閉じている)' : ''}`;
+  buildSidebar();
+  renderPreview();
+}
+
+function getSvgCoords(evt) {
+  const rect = svg.getBoundingClientRect();
+  const x = (evt.clientX - rect.left) * (CANVAS_W / rect.width);
+  const y = (evt.clientY - rect.top) * (CANVAS_H / rect.height);
+  return { x: Math.round(x), y: Math.round(y) };
+}
+
+// 曲線スムージング
+function simplifyPoints(pts, tolerance) {
+  if (pts.length < 3) return pts.slice();
+  function perpDist(p, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+    const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (len * len);
+    const projX = a.x + t * dx, projY = a.y + t * dy;
+    return Math.hypot(p.x - projX, p.y - projY);
+  }
+  function rdp(points) {
+    if (points.length < 3) return points;
+    let maxDist = 0, idx = 0;
+    for (let i = 1; i < points.length - 1; i++) {
+      const d = perpDist(points[i], points[0], points[points.length - 1]);
+      if (d > maxDist) { maxDist = d; idx = i; }
+    }
+    if (maxDist > tolerance) {
+      const left = rdp(points.slice(0, idx + 1));
+      const right = rdp(points.slice(idx));
+      return left.slice(0, -1).concat(right);
+    }
+    return [points[0], points[points.length - 1]];
+  }
+  return rdp(pts);
+}
+
+function smoothToPoints(simplified, closed) {
+  const n = simplified.length;
+  if (n < 2) return simplified.map(p => ({ x: p.x, y: p.y }));
+  const pts = simplified.map(p => ({ x: p.x, y: p.y }));
+  const getPt = (i) => closed ? pts[(i + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
+  for (let i = 0; i < n; i++) {
+    const p0 = getPt(i - 1), p1 = getPt(i), p2 = getPt(i + 1);
+    const smoothing = 0.2;
+    pts[i].inX = p1.x - (p2.x - p0.x) * smoothing;
+    pts[i].inY = p1.y - (p2.y - p0.y) * smoothing;
+    pts[i].outX = p1.x + (p2.x - p0.x) * smoothing;
+    pts[i].outY = p1.y + (p2.y - p0.y) * smoothing;
+  }
+  if (!closed) { delete pts[0].inX; delete pts[0].inY; delete pts[n-1].outX; delete pts[n-1].outY; }
+  return pts;
+}
+
+// ==========================================
+// マウス / ポインター操作
+// ==========================================
+svg.addEventListener('pointerdown', (e) => {
+  const glyph = data[currentLetter][currentForm];
+  const target = e.target;
+  const rawCoords = getSvgCoords(e);
+
+  // 送り幅ハンドルの操作
+  if (target.closest && target.closest('[data-handle-advance="true"]')) {
+    isDraggingAdvance = true;
+    svg.setPointerCapture(e.pointerId);
+    return;
+  }
+
+  if (currentTool === 'freehand') {
+    isFreehandDrawing = true;
+    const snapped = applySnap(rawCoords.x, rawCoords.y);
+    freehandRaw = [snapped];
+    svg.setPointerCapture(e.pointerId);
+    return;
+  }
+
+  if (currentTool === 'delete') {
+    const idx = target.getAttribute('data-point');
+    if (idx !== null) { glyph.points.splice(parseInt(idx), 1); pushHistory(); render(); }
+    return;
+  }
+
+  if (currentTool === 'move') {
+    const idx = target.getAttribute('data-point');
+    const handleIdx = target.getAttribute('data-idx');
+    const handleType = target.getAttribute('data-handle');
+    if (handleIdx !== null) draggingHandle = { idx: parseInt(handleIdx), which: handleType };
+    else if (idx !== null) draggingPoint = parseInt(idx);
+    return;
+  }
+
+  if (currentTool === 'pen') {
+    const idx = target.getAttribute('data-point');
+    if (idx !== null) { draggingHandle = { idx: parseInt(idx), which: 'out', createIn: true }; return; }
+    const snapped = applySnap(rawCoords.x, rawCoords.y);
+    glyph.points.push({ x: snapped.x, y: snapped.y });
+    pushHistory();
+    render();
+  }
+});
+
+svg.addEventListener('pointermove', (e) => {
+  const glyph = data[currentLetter][currentForm];
+  const rawCoords = getSvgCoords(e);
+
+  // 送り幅ラインのドラッグ
+  if (isDraggingAdvance) {
+    let newAdv = Math.round(rawCoords.x / 10) * 10;
+    newAdv = Math.max(60, Math.min(CANVAS_W - 20, newAdv));
+    data[currentLetter].advanceWidth = newAdv;
+    document.getElementById('meta-advance').value = newAdv;
+    document.getElementById('ind-exit-text').textContent = `Exit: x=${newAdv}`;
+    render();
+    return;
+  }
+
+  if (isFreehandDrawing) {
+    const last = freehandRaw[freehandRaw.length - 1];
+    if (!last || Math.hypot(rawCoords.x - last.x, rawCoords.y - last.y) > 3) {
+      freehandRaw.push(rawCoords);
+      let s = drawGuides();
+      let d = `M ${freehandRaw[0].x} ${freehandRaw[0].y} `;
+      for (let i = 1; i < freehandRaw.length; i++) d += `L ${freehandRaw[i].x} ${freehandRaw[i].y} `;
+      s += `<path d="${d}" fill="none" stroke="#b8763f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      svg.innerHTML = s;
+    }
+    return;
+  }
+
+  if (draggingPoint !== null) {
+    const snapped = applySnap(rawCoords.x, rawCoords.y);
+    glyph.points[draggingPoint].x = snapped.x;
+    glyph.points[draggingPoint].y = snapped.y;
+    render();
+  } else if (draggingHandle !== null) {
+    const p = glyph.points[draggingHandle.idx];
+    if (draggingHandle.which === 'out') {
+      p.outX = rawCoords.x; p.outY = rawCoords.y;
+      if (draggingHandle.createIn && p.inX === undefined) {
+        p.inX = p.x - (rawCoords.x - p.x);
+        p.inY = p.y - (rawCoords.y - p.y);
+      }
+    } else { p.inX = rawCoords.x; p.inY = rawCoords.y; }
+    render();
+  }
+});
+
+svg.addEventListener('pointerup', (e) => {
+  if (isDraggingAdvance) {
+    isDraggingAdvance = false;
+    pushHistory();
+    return;
+  }
+
+  if (isFreehandDrawing) {
+    isFreehandDrawing = false;
+    if (freehandRaw.length > 1) {
+      // 始点と終点にスナップを適用
+      const snappedStart = applySnap(freehandRaw[0].x, freehandRaw[0].y);
+      const lastRaw = freehandRaw[freehandRaw.length - 1];
+      const snappedEnd = applySnap(lastRaw.x, lastRaw.y);
+      freehandRaw[0] = snappedStart;
+      freehandRaw[freehandRaw.length - 1] = snappedEnd;
+
+      const simplified = simplifyPoints(freehandRaw, 4);
+      const smoothed = smoothToPoints(simplified, false);
+      const glyph = data[currentLetter][currentForm];
+      glyph.points = smoothed;
+      glyph.closed = false;
+      pushHistory();
+    }
+    freehandRaw = [];
+    render();
+    return;
+  }
+  if (draggingPoint !== null || draggingHandle !== null) pushHistory();
+  draggingPoint = null;
+  draggingHandle = null;
+});
+
+svg.addEventListener('pointerleave', () => {
+  if (!isFreehandDrawing && !isDraggingAdvance) { draggingPoint = null; draggingHandle = null; }
+});
+
+// ==========================================
+// ツールバー操作
+// ==========================================
+document.getElementById('btn-close-path').addEventListener('click', () => {
+  const glyph = data[currentLetter][currentForm];
+  if (glyph.points.length > 2) { glyph.closed = !glyph.closed; pushHistory(); render(); }
+});
+document.getElementById('btn-clear').addEventListener('click', () => {
+  data[currentLetter][currentForm] = { points: [], closed: false };
+  pushHistory();
+  render();
+});
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+
+['freehand', 'pen', 'move', 'delete'].forEach(t => {
+  document.getElementById('tool-' + t).addEventListener('click', () => {
+    currentTool = t;
+    document.querySelectorAll('.tool-btn').forEach(b => {
+      if (b.id.startsWith('tool-')) b.classList.remove('active');
+    });
+    document.getElementById('tool-' + t).classList.add('active');
+  });
+});
+
+document.getElementById('btn-toggle-ghost').addEventListener('click', (e) => {
+  ghostEnabled = !ghostEnabled;
+  e.currentTarget.classList.toggle('active', ghostEnabled);
+  render();
+});
+
+document.getElementById('btn-toggle-snap').addEventListener('click', (e) => {
+  snapEnabled = !snapEnabled;
+  e.currentTarget.classList.toggle('active', snapEnabled);
+});
+
+document.getElementById('btn-copy-from-normal').addEventListener('click', () => {
+  const src = data[currentLetter].normal;
+  if (src.points.length === 0) { alert('normal 形にまだ何も描かれていません'); return; }
+  data[currentLetter].final = JSON.parse(JSON.stringify(src));
+  currentForm = 'final';
+  document.getElementById('form-final').classList.add('active');
+  document.getElementById('form-normal').classList.remove('active');
+  resetHistoryForCurrent();
+  render();
+  saveToStorage();
+});
+
+document.getElementById('form-normal').addEventListener('click', () => {
+  currentForm = 'normal';
+  resetHistoryForCurrent();
+  document.getElementById('form-normal').classList.add('active');
+  document.getElementById('form-final').classList.remove('active');
+  render();
+});
+document.getElementById('form-final').addEventListener('click', () => {
+  currentForm = 'final';
+  resetHistoryForCurrent();
+  document.getElementById('form-final').classList.add('active');
+  document.getElementById('form-normal').classList.remove('active');
+  render();
+});
+
+// ==========================================
+// JSON 読み込み & 書き出し
+// ==========================================
+function loadCharactersJson(parsed) {
+  if (typeof parsed !== 'object' || parsed === null) throw new Error('無効なJSONフォーマットです');
+  const loadedKeys = Object.keys(parsed);
+  if (loadedKeys.length === 0) throw new Error('文字データが含まれていません');
+
+  loadedKeys.forEach(l => {
+    if (!LETTERS.includes(l)) LETTERS.push(l);
+    const pEntry = parsed[l];
+    data[l] = {
+      codepoint: pEntry.codepoint || ('E' + (0x100 + LETTERS.indexOf(l)).toString(16).toUpperCase()),
+      advanceWidth: pEntry.advanceWidth !== undefined ? pEntry.advanceWidth : DEFAULT_ADVANCE,
+      leftBearing: pEntry.leftBearing !== undefined ? pEntry.leftBearing : 0,
+      rightBearing: pEntry.rightBearing !== undefined ? pEntry.rightBearing : 0,
+      normal: pEntry.forms && pEntry.forms.normal ? pEntry.forms.normal : { points: [], closed: false },
+      final: pEntry.forms && pEntry.forms.final ? pEntry.forms.final : { points: [], closed: false }
+    };
+  });
+
+  if (!data[currentLetter]) currentLetter = loadedKeys[0];
+  resetHistoryForCurrent();
+  buildSidebar();
+  updateMetaInputs();
+  render();
+  saveToStorage();
+  showSaveStatus('✓ characters.json を読み込みました');
+}
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const out = {};
+  LETTERS.forEach(l => {
+    out[l] = {
+      codepoint: data[l].codepoint,
+      advanceWidth: data[l].advanceWidth || DEFAULT_ADVANCE,
+      leftBearing: data[l].leftBearing !== undefined ? data[l].leftBearing : 0,
+      rightBearing: data[l].rightBearing !== undefined ? data[l].rightBearing : 0,
+      forms: { normal: data[l].normal, final: data[l].final }
+    };
+  });
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'characters.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showSaveStatus('✓ characters.json を保存しました');
+});
+
+const fileInput = document.getElementById('file-import');
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      loadCharactersJson(parsed);
+    } catch (err) {
+      alert('JSONの読み込みに失敗しました: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = ''; // 同じファイルでも再選択できるようにクリア
+});
+
+// サンプル読み込み
+document.getElementById('btn-load-sample').addEventListener('click', () => {
+  fetch('characters.sample.json')
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(sampleData => {
+      loadCharactersJson(sampleData);
+    })
+    .catch(err => {
+      alert('characters.sample.json の読み込みに失敗しました: ' + err.message);
+    });
+});
+
+// 新規リセット
+document.getElementById('btn-reset-data').addEventListener('click', () => {
+  if (confirm('現在の編集内容を初期化して新規作成しますか？（localStorageもリセットされます）')) {
+    localStorage.removeItem(STORAGE_KEY);
+    LETTERS = ['a','e','f','h','i','j','k','m','n','o','p','r','s','t','u'];
+    initDefaultData();
+    currentLetter = 'a';
+    currentForm = 'normal';
+    resetHistoryForCurrent();
+    buildSidebar();
+    updateMetaInputs();
+    render();
+    showSaveStatus('✓ データを初期化しました');
+  }
+});
+
+// ドラッグ＆ドロップ対応
+const dropOverlay = document.getElementById('drop-overlay');
+window.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropOverlay.classList.add('active');
+});
+window.addEventListener('dragleave', (e) => {
+  if (e.relatedTarget === null) dropOverlay.classList.remove('active');
+});
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropOverlay.classList.remove('active');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      loadCharactersJson(parsed);
+    } catch (err) {
+      alert('JSONの読み込みに失敗しました: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    e.preventDefault();
+    if (e.shiftKey) redo(); else undo();
+  }
+});
+
+// ==========================================
+// プレビューレンダリング（シームレス連結）
+// ==========================================
+let previewDirection = 'ltr';
+
+function setPreviewDirection(dir) {
+  previewDirection = dir;
+  document.getElementById('preview-row').className = dir;
+  document.getElementById('pv-btn-rtl').classList.toggle('active', dir === 'rtl');
+  document.getElementById('pv-btn-ltr').classList.toggle('active', dir === 'ltr');
+}
+
+function glyphToSvgMarkup(letter, glyph, advanceWidth, opts) {
+  opts = opts || {};
+  const scale = 0.45;
+  const adv = advanceWidth || DEFAULT_ADVANCE;
+  const w = Math.round(adv * scale);
+  const h = Math.round(CANVAS_H * scale);
+  const points = glyph ? glyph.points : null;
+  const closed = glyph ? glyph.closed : false;
+
+  if (!points || points.length === 0) {
+    return `<svg width="${Math.round(40)}" height="${h}" viewBox="0 0 40 ${CANVAS_H}">
+      <rect x="4" y="${BASELINE_Y - 140}" width="32" height="150" fill="none" stroke="#5a5347" stroke-width="1.5" stroke-dasharray="3 3" rx="4"/>
+      <text x="20" y="${BASELINE_Y - 60}" fill="#7a6f5e" font-size="28" font-family="monospace" text-anchor="middle">${letter}</text>
+    </svg>`;
+  }
+
+  const d = pathData(points, closed);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${adv} ${CANVAS_H}">
+    <path d="${d}" fill="none" stroke="#e8dfd0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    ${opts.voiced ? `<circle cx="${adv/2 - 16}" cy="60" r="10" fill="#7a8570"/><circle cx="${adv/2 + 16}" cy="60" r="10" fill="#7a8570"/>` : ''}
+  </svg>`;
+}
+
+function tokenizePreview(str) {
+  const tokens = [];
+  let i = 0;
+  const chars = str.replace(/\s+/g, '').split('');
+  while (i < chars.length) {
+    const c = chars[i].toLowerCase();
+    if (!LETTERS.includes(c)) { i++; continue; }
+    if (c === 'r' && chars[i+1] && chars[i+1].toLowerCase() === 'r') {
+      let voiced = false, j = i + 2;
+      if (chars[j] === "'") { voiced = true; j++; }
+      tokens.push({ letter: 'r', ligature: true, voiced });
+      i = j;
+      continue;
+    }
+    let voiced = false, j = i + 1;
+    if (chars[j] === "'") { voiced = true; j++; }
+    tokens.push({ letter: c, ligature: false, voiced });
+    i = j;
+  }
+  return tokens;
+}
+
+function renderPreview() {
+  const raw = document.getElementById('pv-input').value;
+  const tokens = tokenizePreview(raw);
+  const row = document.getElementById('preview-row');
+  row.innerHTML = '';
+
+  tokens.forEach((tok, idx) => {
+    const isLast = (previewDirection === 'ltr') ? (idx === tokens.length - 1) : (idx === 0);
+    const form = isLast ? 'final' : 'normal';
+    const slot = document.createElement('div');
+    slot.className = 'pv-slot';
+    slot.title = `クリックして [${tok.letter}] を編集`;
+
+    const entry = data[tok.letter] || { advanceWidth: DEFAULT_ADVANCE };
+    const glyph = entry ? (entry[form] && entry[form].points.length > 0 ? entry[form] : entry.normal) : null;
+    const adv = entry.advanceWidth || DEFAULT_ADVANCE;
+
+    slot.innerHTML = glyphToSvgMarkup(tok.letter, glyph, adv, { voiced: tok.voiced });
+    const cap = document.createElement('div');
+    cap.className = 'pv-caption';
+    cap.textContent = tok.letter + (tok.voiced ? "'" : '') + ' · ' + form;
+    slot.appendChild(cap);
+
+    slot.addEventListener('click', () => {
+      selectLetter(tok.letter);
+    });
+
+    row.appendChild(slot);
+  });
+
+  document.getElementById('pv-count').textContent = tokens.length + ' glyphs';
+  document.getElementById('pv-status').textContent = tokens.length === 0
+    ? `認識可能文字: ${LETTERS.join(' ')}`
+    : '';
+}
+
+document.getElementById('pv-input').addEventListener('input', () => {
+  renderPreview();
+  saveToStorage();
+});
+document.getElementById('pv-btn-rtl').addEventListener('click', () => {
+  setPreviewDirection('rtl');
+  renderPreview();
+  saveToStorage();
+});
+document.getElementById('pv-btn-ltr').addEventListener('click', () => {
+  setPreviewDirection('ltr');
+  renderPreview();
+  saveToStorage();
+});
+
+// ==========================================
+// 起動時初期化
+// ==========================================
+const restored = loadFromStorage();
+if (restored) {
+  showSaveStatus('✓ 前回作業から自動復元しました');
+}
+resetHistoryForCurrent();
+buildSidebar();
+updateMetaInputs();
+render();
+</script>
+</body>
+</html>

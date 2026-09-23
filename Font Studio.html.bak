@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Font Studio</title>
+<style>
+  :root {
+    --ink: #1a1815;
+    --ink-2: #232019;
+    --ink-3: #2c2820;
+    --parchment: #e8dfd0;
+    --parchment-dim: #a89f8e;
+    --copper: #b8763f;
+    --copper-soft: rgba(184,118,63,0.15);
+    --sage: #7a8570;
+    --line: #3a352c;
+    --danger: #b85f4a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--ink);
+    color: var(--parchment);
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    overflow-x: hidden;
+  }
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100%;
+  }
+  header {
+    padding: 12px 18px 10px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  h1 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 2px;
+  }
+  .sub {
+    color: var(--parchment-dim);
+    font-size: 0.75rem;
+  }
+  .main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  /* Sidebar: character list */
+  .sidebar {
+    width: 96px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    padding: 10px 8px;
+  }
+  .char-btn {
+    width: 100%;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    color: var(--parchment-dim);
+    border-radius: 8px;
+    padding: 8px 0;
+    margin-bottom: 6px;
+    font-family: monospace;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .char-btn.active {
+    background: var(--copper-soft);
+    border-color: var(--copper);
+    color: var(--copper);
+  }
+  .char-btn .dot-status { display: flex; gap: 3px; }
+  .char-btn .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--line); }
+  .char-btn .dot.filled { background: var(--sage); }
+  .char-btn.active .dot.filled { background: var(--copper); }
+
+  /* Center: canvas editor */
+  .editor-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .form-toggle { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .form-toggle button {
+    background: var(--ink-2); color: var(--parchment-dim); border: none;
+    padding: 6px 12px; font-size: 0.75rem; cursor: pointer; font-family: inherit;
+  }
+  .form-toggle button.active { background: var(--copper-soft); color: var(--copper); }
+  .tool-btn {
+    background: var(--ink-2); border: 1px solid var(--line); color: var(--parchment-dim);
+    border-radius: 6px; padding: 6px 12px; font-size: 0.75rem; cursor: pointer; font-family: inherit;
+  }
+  .tool-btn.active { background: var(--copper-soft); color: var(--copper); border-color: var(--copper); }
+  .tool-btn:hover { border-color: var(--parchment-dim); }
+  .spacer { flex: 1; }
+  .canvas-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ink-2);
+    overflow: auto;
+    padding: 16px;
+    min-height: 0;
+  }
+  #glyph-canvas {
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .canvas-footer {
+    padding: 8px 16px;
+    font-size: 0.7rem;
+    color: var(--parchment-dim);
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .canvas-footer button {
+    background: none; border: none; color: var(--sage); cursor: pointer;
+    font-size: 0.7rem; font-family: inherit; padding: 0;
+  }
+
+  /* Right: metrics panel */
+  .metrics-panel {
+    width: 190px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--line);
+    padding: 14px;
+    overflow-y: auto;
+  }
+  .metrics-panel h2 { font-size: 0.75rem; font-weight: 600; margin: 0 0 12px; color: var(--parchment); }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 0.65rem; color: var(--parchment-dim); margin-bottom: 4px; font-family: monospace; }
+  .field input[type="number"], .field input[type="text"] {
+    width: 100%; background: var(--ink-2); border: 1px solid var(--line); color: var(--parchment);
+    padding: 6px 8px; border-radius: 5px; font-size: 0.8rem; font-family: monospace;
+  }
+  .export-btn {
+    width: 100%; background: var(--sage); color: var(--ink); border: none; border-radius: 6px;
+    padding: 9px 0; font-size: 0.75rem; font-weight: 600; cursor: pointer; margin-top: 6px;
+  }
+  .import-btn {
+    width: 100%; background: var(--ink-3); border: 1px solid var(--line); color: var(--parchment);
+    border-radius: 6px; padding: 9px 0; font-size: 0.75rem; cursor: pointer; margin-top: 8px;
+    font-family: inherit;
+  }
+  .divider { border-top: 1px solid var(--line); margin: 14px 0; }
+  .hint-small { font-size: 0.65rem; color: var(--parchment-dim); line-height: 1.5; }
+
+  /* Bottom: live RTL preview bar */
+  .preview-bar {
+    flex-shrink: 0;
+    border-top: 1px solid var(--line);
+    background: var(--ink-2);
+    padding: 12px 18px 16px;
+  }
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .preview-header .label {
+    font-size: 0.72rem;
+    color: var(--parchment-dim);
+    font-weight: 600;
+  }
+  .preview-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .preview-input-row input[type="text"] {
+    flex: 1;
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    color: var(--parchment);
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: monospace;
+    outline: none;
+  }
+  .preview-input-row input[type="text"]:focus { border-color: var(--copper); }
+  .preview-toggle { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .preview-toggle button {
+    background: var(--ink-3); color: var(--parchment-dim); border: none;
+    padding: 0 14px; font-size: 0.72rem; cursor: pointer; font-family: inherit;
+  }
+  .preview-toggle button.active { background: var(--copper-soft); color: var(--copper); }
+  .preview-canvas-wrap {
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    min-height: 76px;
+    overflow-x: auto;
+  }
+  #preview-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    min-height: 60px;
+  }
+  #preview-row.rtl { flex-direction: row-reverse; justify-content: flex-end; }
+  #preview-row.ltr { flex-direction: row; justify-content: flex-start; }
+  .pv-slot { position: relative; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+  .pv-slot svg { display: block; }
+  .pv-caption { font-size: 0.55rem; color: var(--parchment-dim); margin-top: 4px; font-family: monospace; white-space: nowrap; }
+  .preview-status { font-size: 0.68rem; color: var(--sage); margin-top: 6px; min-height: 14px; }
+  .pv-placeholder { font-size: 0.68rem; color: var(--parchment-dim); padding: 8px 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Font Studio</h1>
+    <div class="sub">グリフを描く（上）→ すぐ下でRTL表示を確認。normal/final・rr合字・voicedマークの見た目をリアルタイムに反映します。</div>
+  </header>
+
+  <div class="main">
+    <div class="sidebar" id="char-sidebar"></div>
+
+    <div class="editor-col">
+      <div class="editor-toolbar">
+        <div class="form-toggle">
+          <button id="form-normal" class="active">normal</button>
+          <button id="form-final">final</button>
+        </div>
+        <button class="tool-btn active" id="tool-freehand">フリーハンド</button>
+        <button class="tool-btn" id="tool-pen">ペン(点)</button>
+        <button class="tool-btn" id="tool-move">移動</button>
+        <button class="tool-btn" id="tool-delete">点を削除</button>
+        <div class="spacer"></div>
+        <button class="tool-btn" id="btn-copy-from-normal" title="normalの形をコピーしてfinalとして編集する">normalをコピー →</button>
+        <button class="tool-btn" id="btn-undo">↺ undo</button>
+        <button class="tool-btn" id="btn-redo">↻ redo</button>
+        <button class="tool-btn" id="btn-clear">クリア</button>
+      </div>
+
+      <div class="canvas-wrap">
+        <svg id="glyph-canvas" width="360" height="440" viewBox="0 0 360 440"></svg>
+      </div>
+
+      <div class="canvas-footer">
+        <span id="path-info">点: 0</span>
+        <button id="btn-close-path">パスを閉じる</button>
+      </div>
+    </div>
+
+    <div class="metrics-panel">
+      <h2>字形情報</h2>
+      <div class="field">
+        <label>id</label>
+        <input type="text" id="meta-id" readonly>
+      </div>
+      <div class="field">
+        <label>codepoint</label>
+        <input type="text" id="meta-codepoint" readonly>
+      </div>
+      <div class="field">
+        <label>advance width</label>
+        <input type="number" id="meta-advance" value="600">
+      </div>
+      <div class="field">
+        <label>left bearing</label>
+        <input type="number" id="meta-left" value="50">
+      </div>
+      <div class="field">
+        <label>right bearing</label>
+        <input type="number" id="meta-right" value="50">
+      </div>
+      <div class="divider"></div>
+      <button class="export-btn" id="btn-export">characters.json 書き出し</button>
+      <label class="import-btn" for="file-import">characters.json 読み込み</label>
+      <input type="file" id="file-import" accept=".json" style="display:none;">
+      <div class="divider"></div>
+      <div class="hint-small">
+        グリッド: baseline / x-height / cap-height を表示。<br>
+        normal と final は別々のパスとして保存されます。
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-bar">
+    <div class="preview-header">
+      <span class="label">RTL Preview</span>
+      <div class="preview-toggle">
+        <button id="pv-btn-rtl" class="active">RTL</button>
+        <button id="pv-btn-ltr">LTR</button>
+      </div>
+      <div class="spacer"></div>
+      <span class="pv-placeholder" id="pv-count">0 glyphs</span>
+    </div>
+    <div class="preview-input-row">
+      <input type="text" id="pv-input" placeholder="例: arrr voiced:a abc" value="a">
+    </div>
+    <div class="preview-canvas-wrap">
+      <div id="preview-row" class="rtl"></div>
+    </div>
+    <div class="preview-status" id="pv-status"></div>
+  </div>
+</div>
+
+<script>
+const LETTERS = ['a','e','f','h','i','j','k','m','n','o','p','r','s','t','u'];
+const CANVAS_W = 360, CANVAS_H = 440;
+const BASELINE_Y = 340;
+const XHEIGHT_Y = 160;
+const CAPHEIGHT_Y = 90;
+const LEFT_X = 60, RIGHT_X = 300;
+
+// ---------- shared data store ----------
+// data[letter] = { codepoint, normal:{points,closed}, final:{points,closed} }
+let data = {};
+LETTERS.forEach((l, idx) => {
+  data[l] = {
+    codepoint: 'E' + idx.toString(16).padStart(3, '0').toUpperCase(),
+    normal: { points: [], closed: false },
+    final: { points: [], closed: false }
+  };
+});
+
+let currentLetter = 'a';
+let currentForm = 'normal';
+let currentTool = 'freehand';
+let history = [];
+let historyIdx = -1;
+let draggingHandle = null;
+let draggingPoint = null;
+let isFreehandDrawing = false;
+let freehandRaw = [];
+
+const svg = document.getElementById('glyph-canvas');
+
+function snapshot() { return JSON.parse(JSON.stringify(data[currentLetter][currentForm])); }
+function pushHistory() {
+  history = history.slice(0, historyIdx + 1);
+  history.push(snapshot());
+  historyIdx = history.length - 1;
+  if (history.length > 50) { history.shift(); historyIdx--; }
+  renderPreview(); // keep preview in sync with every edit
+}
+function undo() {
+  if (historyIdx <= 0) return;
+  historyIdx--;
+  data[currentLetter][currentForm] = JSON.parse(JSON.stringify(history[historyIdx]));
+  render();
+}
+function redo() {
+  if (historyIdx >= history.length - 1) return;
+  historyIdx++;
+  data[currentLetter][currentForm] = JSON.parse(JSON.stringify(history[historyIdx]));
+  render();
+}
+function resetHistoryForCurrent() { history = [snapshot()]; historyIdx = 0; }
+
+function buildSidebar() {
+  const el = document.getElementById('char-sidebar');
+  el.innerHTML = '';
+  LETTERS.forEach(l => {
+    const btn = document.createElement('button');
+    btn.className = 'char-btn' + (l === currentLetter ? ' active' : '');
+    const nHas = data[l].normal.points.length > 0;
+    const fHas = data[l].final.points.length > 0;
+    btn.innerHTML = `<span>${l}</span><span class="dot-status">
+      <span class="dot ${nHas ? 'filled' : ''}"></span>
+      <span class="dot ${fHas ? 'filled' : ''}"></span>
+    </span>`;
+    btn.addEventListener('click', () => {
+      currentLetter = l;
+      resetHistoryForCurrent();
+      buildSidebar();
+      updateMeta();
+      render();
+    });
+    el.appendChild(btn);
+  });
+}
+
+function updateMeta() {
+  document.getElementById('meta-id').value = currentLetter;
+  document.getElementById('meta-codepoint').value = 'U+' + data[currentLetter].codepoint;
+}
+
+function drawGuides() {
+  let s = '';
+  for (let x = 0; x <= CANVAS_W; x += 20) s += `<line x1="${x}" y1="0" x2="${x}" y2="${CANVAS_H}" stroke="#2c2820" stroke-width="1"/>`;
+  for (let y = 0; y <= CANVAS_H; y += 20) s += `<line x1="0" y1="${y}" x2="${CANVAS_W}" y2="${y}" stroke="#2c2820" stroke-width="1"/>`;
+  s += `<line x1="0" y1="${BASELINE_Y}" x2="${CANVAS_W}" y2="${BASELINE_Y}" stroke="#b8763f" stroke-width="1.2" stroke-dasharray="4 3"/>`;
+  s += `<text x="4" y="${BASELINE_Y - 4}" fill="#b8763f" font-size="9" font-family="monospace">baseline</text>`;
+  s += `<line x1="0" y1="${XHEIGHT_Y}" x2="${CANVAS_W}" y2="${XHEIGHT_Y}" stroke="#7a8570" stroke-width="1.2" stroke-dasharray="4 3"/>`;
+  s += `<text x="4" y="${XHEIGHT_Y - 4}" fill="#7a8570" font-size="9" font-family="monospace">x-height</text>`;
+  s += `<line x1="0" y1="${CAPHEIGHT_Y}" x2="${CANVAS_W}" y2="${CAPHEIGHT_Y}" stroke="#5a6a52" stroke-width="1" stroke-dasharray="2 4"/>`;
+  s += `<text x="4" y="${CAPHEIGHT_Y - 4}" fill="#5a6a52" font-size="9" font-family="monospace">cap-height</text>`;
+  s += `<line x1="${LEFT_X}" y1="0" x2="${LEFT_X}" y2="${CANVAS_H}" stroke="#3a352c" stroke-width="1"/>`;
+  s += `<line x1="${RIGHT_X}" y1="0" x2="${RIGHT_X}" y2="${CANVAS_H}" stroke="#3a352c" stroke-width="1"/>`;
+  return s;
+}
+
+function pathData(points, closed) {
+  if (points.length === 0) return '';
+  let d = `M ${points[0].x} ${points[0].y} `;
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i-1], cur = points[i];
+    const c1x = prev.outX !== undefined ? prev.outX : prev.x;
+    const c1y = prev.outY !== undefined ? prev.outY : prev.y;
+    const c2x = cur.inX !== undefined ? cur.inX : cur.x;
+    const c2y = cur.inY !== undefined ? cur.inY : cur.y;
+    d += `C ${c1x} ${c1y}, ${c2x} ${c2y}, ${cur.x} ${cur.y} `;
+  }
+  if (closed && points.length > 1) {
+    const prev = points[points.length - 1], first = points[0];
+    const c1x = prev.outX !== undefined ? prev.outX : prev.x;
+    const c1y = prev.outY !== undefined ? prev.outY : prev.y;
+    const c2x = first.inX !== undefined ? first.inX : first.x;
+    const c2y = first.inY !== undefined ? first.inY : first.y;
+    d += `C ${c1x} ${c1y}, ${c2x} ${c2y}, ${first.x} ${first.y} Z`;
+  }
+  return d;
+}
+
+function render() {
+  const glyph = data[currentLetter][currentForm];
+  let s = drawGuides();
+  const d = pathData(glyph.points, glyph.closed);
+  if (d) s += `<path d="${d}" fill="none" stroke="#e8dfd0" stroke-width="2.5" stroke-linecap="round"/>`;
+
+  glyph.points.forEach((p, i) => {
+    if (p.inX !== undefined) {
+      s += `<line x1="${p.x}" y1="${p.y}" x2="${p.inX}" y2="${p.inY}" stroke="#7a8570" stroke-width="1"/>`;
+      s += `<circle cx="${p.inX}" cy="${p.inY}" r="3.5" fill="#7a8570" data-handle="in" data-idx="${i}" style="cursor:pointer"/>`;
+    }
+    if (p.outX !== undefined) {
+      s += `<line x1="${p.x}" y1="${p.y}" x2="${p.outX}" y2="${p.outY}" stroke="#7a8570" stroke-width="1"/>`;
+      s += `<circle cx="${p.outX}" cy="${p.outY}" r="3.5" fill="#7a8570" data-handle="out" data-idx="${i}" style="cursor:pointer"/>`;
+    }
+    s += `<circle cx="${p.x}" cy="${p.y}" r="5" fill="${currentTool==='delete' ? '#b85f4a' : '#b8763f'}" stroke="#e8dfd0" stroke-width="1.5" data-point="${i}" style="cursor:pointer"/>`;
+  });
+
+  svg.innerHTML = s;
+  document.getElementById('path-info').textContent = `点: ${glyph.points.length}${glyph.closed ? ' (閉じている)' : ''}`;
+  buildSidebar();
+  renderPreview();
+}
+
+function getSvgCoords(evt) {
+  const rect = svg.getBoundingClientRect();
+  const x = (evt.clientX - rect.left) * (CANVAS_W / rect.width);
+  const y = (evt.clientY - rect.top) * (CANVAS_H / rect.height);
+  return { x: Math.round(x), y: Math.round(y) };
+}
+
+function simplifyPoints(pts, tolerance) {
+  if (pts.length < 3) return pts.slice();
+  function perpDist(p, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+    const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (len * len);
+    const projX = a.x + t * dx, projY = a.y + t * dy;
+    return Math.hypot(p.x - projX, p.y - projY);
+  }
+  function rdp(points) {
+    if (points.length < 3) return points;
+    let maxDist = 0, idx = 0;
+    for (let i = 1; i < points.length - 1; i++) {
+      const d = perpDist(points[i], points[0], points[points.length - 1]);
+      if (d > maxDist) { maxDist = d; idx = i; }
+    }
+    if (maxDist > tolerance) {
+      const left = rdp(points.slice(0, idx + 1));
+      const right = rdp(points.slice(idx));
+      return left.slice(0, -1).concat(right);
+    }
+    return [points[0], points[points.length - 1]];
+  }
+  return rdp(pts);
+}
+
+function smoothToPoints(simplified, closed) {
+  const n = simplified.length;
+  if (n < 2) return simplified.map(p => ({ x: p.x, y: p.y }));
+  const pts = simplified.map(p => ({ x: p.x, y: p.y }));
+  const getPt = (i) => closed ? pts[(i + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
+  for (let i = 0; i < n; i++) {
+    const p0 = getPt(i - 1), p1 = getPt(i), p2 = getPt(i + 1);
+    const smoothing = 0.2;
+    pts[i].inX = p1.x - (p2.x - p0.x) * smoothing;
+    pts[i].inY = p1.y - (p2.y - p0.y) * smoothing;
+    pts[i].outX = p1.x + (p2.x - p0.x) * smoothing;
+    pts[i].outY = p1.y + (p2.y - p0.y) * smoothing;
+  }
+  if (!closed) { delete pts[0].inX; delete pts[0].inY; delete pts[n-1].outX; delete pts[n-1].outY; }
+  return pts;
+}
+
+svg.addEventListener('pointerdown', (e) => {
+  const glyph = data[currentLetter][currentForm];
+  const target = e.target;
+
+  if (currentTool === 'freehand') {
+    isFreehandDrawing = true;
+    freehandRaw = [getSvgCoords(e)];
+    svg.setPointerCapture(e.pointerId);
+    return;
+  }
+  if (currentTool === 'delete') {
+    const idx = target.getAttribute('data-point');
+    if (idx !== null) { glyph.points.splice(parseInt(idx), 1); pushHistory(); render(); }
+    return;
+  }
+  if (currentTool === 'move') {
+    const idx = target.getAttribute('data-point');
+    const handleIdx = target.getAttribute('data-idx');
+    const handleType = target.getAttribute('data-handle');
+    if (handleIdx !== null) draggingHandle = { idx: parseInt(handleIdx), which: handleType };
+    else if (idx !== null) draggingPoint = parseInt(idx);
+    return;
+  }
+  if (currentTool === 'pen') {
+    const idx = target.getAttribute('data-point');
+    if (idx !== null) { draggingHandle = { idx: parseInt(idx), which: 'out', createIn: true }; return; }
+    const coords = getSvgCoords(e);
+    glyph.points.push({ x: coords.x, y: coords.y });
+    pushHistory();
+    render();
+  }
+});
+
+svg.addEventListener('pointermove', (e) => {
+  const glyph = data[currentLetter][currentForm];
+  const coords = getSvgCoords(e);
+
+  if (isFreehandDrawing) {
+    const last = freehandRaw[freehandRaw.length - 1];
+    if (!last || Math.hypot(coords.x - last.x, coords.y - last.y) > 3) {
+      freehandRaw.push(coords);
+      let s = drawGuides();
+      let d = `M ${freehandRaw[0].x} ${freehandRaw[0].y} `;
+      for (let i = 1; i < freehandRaw.length; i++) d += `L ${freehandRaw[i].x} ${freehandRaw[i].y} `;
+      s += `<path d="${d}" fill="none" stroke="#b8763f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      svg.innerHTML = s;
+    }
+    return;
+  }
+
+  if (draggingPoint !== null) {
+    glyph.points[draggingPoint].x = coords.x;
+    glyph.points[draggingPoint].y = coords.y;
+    render();
+  } else if (draggingHandle !== null) {
+    const p = glyph.points[draggingHandle.idx];
+    if (draggingHandle.which === 'out') {
+      p.outX = coords.x; p.outY = coords.y;
+      if (draggingHandle.createIn && p.inX === undefined) {
+        p.inX = p.x - (coords.x - p.x);
+        p.inY = p.y - (coords.y - p.y);
+      }
+    } else { p.inX = coords.x; p.inY = coords.y; }
+    render();
+  }
+});
+
+svg.addEventListener('pointerup', () => {
+  if (isFreehandDrawing) {
+    isFreehandDrawing = false;
+    if (freehandRaw.length > 1) {
+      const simplified = simplifyPoints(freehandRaw, 4);
+      const smoothed = smoothToPoints(simplified, false);
+      const glyph = data[currentLetter][currentForm];
+      glyph.points = smoothed;
+      glyph.closed = false;
+      pushHistory();
+    }
+    freehandRaw = [];
+    render();
+    return;
+  }
+  if (draggingPoint !== null || draggingHandle !== null) pushHistory();
+  draggingPoint = null;
+  draggingHandle = null;
+});
+svg.addEventListener('pointerleave', () => {
+  if (!isFreehandDrawing) { draggingPoint = null; draggingHandle = null; }
+});
+
+document.getElementById('btn-close-path').addEventListener('click', () => {
+  const glyph = data[currentLetter][currentForm];
+  if (glyph.points.length > 2) { glyph.closed = !glyph.closed; pushHistory(); render(); }
+});
+document.getElementById('btn-clear').addEventListener('click', () => {
+  data[currentLetter][currentForm] = { points: [], closed: false };
+  pushHistory();
+  render();
+});
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+
+['freehand', 'pen', 'move', 'delete'].forEach(t => {
+  document.getElementById('tool-' + t).addEventListener('click', () => {
+    currentTool = t;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tool-' + t).classList.add('active');
+  });
+});
+
+document.getElementById('btn-copy-from-normal').addEventListener('click', () => {
+  const src = data[currentLetter].normal;
+  if (src.points.length === 0) { alert('normal 形にまだ何も描かれていません'); return; }
+  data[currentLetter].final = JSON.parse(JSON.stringify(src));
+  currentForm = 'final';
+  document.getElementById('form-final').classList.add('active');
+  document.getElementById('form-normal').classList.remove('active');
+  resetHistoryForCurrent();
+  render();
+});
+
+document.getElementById('form-normal').addEventListener('click', () => {
+  currentForm = 'normal';
+  resetHistoryForCurrent();
+  document.getElementById('form-normal').classList.add('active');
+  document.getElementById('form-final').classList.remove('active');
+  render();
+});
+document.getElementById('form-final').addEventListener('click', () => {
+  currentForm = 'final';
+  resetHistoryForCurrent();
+  document.getElementById('form-final').classList.add('active');
+  document.getElementById('form-normal').classList.remove('active');
+  render();
+});
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const out = {};
+  LETTERS.forEach(l => {
+    out[l] = {
+      codepoint: data[l].codepoint,
+      advanceWidth: parseInt(document.getElementById('meta-advance').value) || 600,
+      leftBearing: parseInt(document.getElementById('meta-left').value) || 50,
+      rightBearing: parseInt(document.getElementById('meta-right').value) || 50,
+      forms: { normal: data[l].normal, final: data[l].final }
+    };
+  });
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'characters.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('file-import').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      LETTERS.forEach(l => {
+        if (parsed[l]) {
+          data[l] = {
+            codepoint: parsed[l].codepoint || data[l].codepoint,
+            normal: parsed[l].forms && parsed[l].forms.normal ? parsed[l].forms.normal : { points: [], closed: false },
+            final: parsed[l].forms && parsed[l].forms.final ? parsed[l].forms.final : { points: [], closed: false }
+          };
+        }
+      });
+      resetHistoryForCurrent();
+      buildSidebar();
+      updateMeta();
+      render();
+    } catch (err) {
+      alert('JSONの読み込みに失敗しました: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    e.preventDefault();
+    if (e.shiftKey) redo(); else undo();
+  }
+});
+
+// ---------- live RTL preview (reads directly from `data`) ----------
+let previewDirection = 'rtl';
+
+function glyphToSvgMarkup(letterOrLig, points, closed, opts) {
+  opts = opts || {};
+  const scale = 0.5; // shrink 360x440 editor glyph down for inline preview
+  const w = Math.round(CANVAS_W * scale) + (opts.ligature ? 20 : 0);
+  const h = Math.round(CANVAS_H * scale * 0.55); // crop mostly around x-height/baseline area visually
+  const voiced = opts.voiced;
+
+  if (!points || points.length === 0) {
+    // fallback: empty box outline so missing glyphs are still visible in the row
+    return `<svg width="${Math.round(40)}" height="${Math.round(60)}" viewBox="0 0 40 60">
+      <rect x="6" y="10" width="28" height="40" fill="none" stroke="#5a5347" stroke-width="1.5" stroke-dasharray="3 3" rx="4"/>
+    </svg>`;
+  }
+
+  const d = pathData(points, closed);
+  const voicedMarks = voiced ? `
+    <circle cx="${180*scale - 14}" cy="${(BASELINE_Y-230)*scale}" r="3.5" fill="#7a8570"/>
+    <circle cx="${180*scale + 14}" cy="${(BASELINE_Y-230)*scale}" r="3.5" fill="#7a8570"/>
+  ` : '';
+
+  return `<svg width="${Math.round(CANVAS_W*scale)}" height="${Math.round(CANVAS_H*scale)}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}">
+    <path d="${d}" fill="none" stroke="#e8dfd0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    ${voiced ? `<circle cx="166" cy="60" r="10" fill="#7a8570"/><circle cx="214" cy="60" r="10" fill="#7a8570"/>` : ''}
+  </svg>`;
+}
+
+function buildRrLigatureSvg() {
+  const rEntry = data['r'];
+  if (!rEntry || rEntry.normal.points.length === 0) return null;
+  const pts1 = rEntry.normal.points;
+  const shift = 170;
+  const pts2 = pts1.map(p => {
+    const np = Object.assign({}, p);
+    np.x += shift;
+    if (np.inX !== undefined) np.inX += shift;
+    if (np.outX !== undefined) np.outX += shift;
+    return np;
+  });
+  const d1 = pathData(pts1, rEntry.normal.closed);
+  const d2 = pathData(pts2, rEntry.normal.closed);
+  const w = CANVAS_W + shift;
+  return `<svg width="${Math.round(w*0.5)}" height="${Math.round(CANVAS_H*0.5)}" viewBox="0 0 ${w} ${CANVAS_H}">
+    <path d="${d1}" fill="none" stroke="#e8dfd0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${d2}" fill="none" stroke="#e8dfd0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="${180}" y1="${BASELINE_Y-120}" x2="${180+shift}" y2="${BASELINE_Y-120}" stroke="#b8763f" stroke-width="2" stroke-dasharray="4 4"/>
+  </svg>`;
+}
+
+function tokenizePreview(str) {
+  const tokens = [];
+  let i = 0;
+  const chars = str.replace(/\s+/g, '').split('');
+  while (i < chars.length) {
+    const c = chars[i].toLowerCase();
+    if (!LETTERS.includes(c)) { i++; continue; }
+    if (c === 'r' && chars[i+1] && chars[i+1].toLowerCase() === 'r') {
+      let voiced = false, j = i + 2;
+      if (chars[j] === "'") { voiced = true; j++; }
+      tokens.push({ letter: 'r', ligature: true, voiced });
+      i = j;
+      continue;
+    }
+    let voiced = false, j = i + 1;
+    if (chars[j] === "'") { voiced = true; j++; }
+    tokens.push({ letter: c, ligature: false, voiced });
+    i = j;
+  }
+  return tokens;
+}
+
+function renderPreview() {
+  const raw = document.getElementById('pv-input').value;
+  const tokens = tokenizePreview(raw);
+  const row = document.getElementById('preview-row');
+  row.innerHTML = '';
+
+  tokens.forEach((tok, idx) => {
+    const isLast = idx === tokens.length - 1;
+    const form = isLast ? 'final' : 'normal';
+    const slot = document.createElement('div');
+    slot.className = 'pv-slot';
+
+    let svgMarkup;
+    if (tok.ligature) {
+      svgMarkup = buildRrLigatureSvg();
+      if (!svgMarkup) svgMarkup = glyphToSvgMarkup('r', null, false, {});
+    } else {
+      const entry = data[tok.letter];
+      const glyph = entry ? entry[form] : null;
+      svgMarkup = glyphToSvgMarkup(tok.letter, glyph ? glyph.points : null, glyph ? glyph.closed : false, { voiced: tok.voiced });
+    }
+    slot.innerHTML = svgMarkup;
+    const cap = document.createElement('div');
+    cap.className = 'pv-caption';
+    cap.textContent = (tok.ligature ? 'rr' : tok.letter) + (tok.voiced ? "'" : '') + ' · ' + (tok.ligature ? 'liga' : form);
+    slot.appendChild(cap);
+    row.appendChild(slot);
+  });
+
+  document.getElementById('pv-count').textContent = tokens.length + ' glyphs';
+  document.getElementById('pv-status').textContent = tokens.length === 0
+    ? '入力に対応する文字がありません（a e f h i j k m n o p r s t u のみ認識）'
+    : '';
+}
+
+document.getElementById('pv-input').addEventListener('input', renderPreview);
+document.getElementById('pv-btn-rtl').addEventListener('click', () => {
+  previewDirection = 'rtl';
+  document.getElementById('preview-row').className = 'rtl';
+  document.getElementById('pv-btn-rtl').classList.add('active');
+  document.getElementById('pv-btn-ltr').classList.remove('active');
+});
+document.getElementById('pv-btn-ltr').addEventListener('click', () => {
+  previewDirection = 'ltr';
+  document.getElementById('preview-row').className = 'ltr';
+  document.getElementById('pv-btn-ltr').classList.add('active');
+  document.getElementById('pv-btn-rtl').classList.remove('active');
+});
+
+// ---------- init ----------
+resetHistoryForCurrent();
+buildSidebar();
+updateMeta();
+render();
+</script>
+</body>
+</html>

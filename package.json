@@ -1,0 +1,13 @@
+{
+  "name": "conlang-font-builder",
+  "version": "1.0.0",
+  "description": "Build an OTF/TTF font from characters.json exported by the Glyph Editor",
+  "type": "commonjs",
+  "main": "build-font.js",
+  "scripts": {
+    "build": "node build-font.js"
+  },
+  "dependencies": {
+    "opentype.js": "^1.3.4"
+  }
+}
